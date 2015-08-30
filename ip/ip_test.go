@@ -6,14 +6,52 @@ import (
 	"testing"
 )
 
-func TestIPv4(t *testing.T) {
-	data := []byte{0x54, 0xB9, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0}
+var validIPv4Packet = []byte{
+	0x54, 0xB9, 0x00, 0x14,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+}
 
-	p, err := NewIPv4Packet(data)
+var validIPv6Packet = []byte{
+	0x56, 0xB9, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+}
+
+// IHL is too short for a valid packet.
+var shortIHL = []byte{
+	0x44, 0xB9, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+}
+
+// IHL is too long for the total length of the packet.
+var largeIHL = []byte{
+	0xF4, 0xB9, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+}
+
+// Total Length value is wrong.
+var wrongTL = []byte{
+	0x54, 0xB9, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+}
+
+func TestIPv4(t *testing.T) {
+	// Test with a valid IPv4 packet.
+	p, err := NewIPv4Packet(validIPv4Packet)
 	if err != nil {
 		t.Fatalf("*** Error creating new packet: %v", err)
 	}
@@ -24,7 +62,7 @@ func TestIPv4(t *testing.T) {
 	t.Logf("Version: %d", p.Version)
 
 	if p.IHL != MinIHL {
-		t.Fatalf("*** IHL should be 5, instead found %d", p.IHL)
+		t.Fatalf("*** IHL should be %d, instead found %d", MinIHL, p.IHL)
 	}
 	t.Logf("IHL: %d", p.IHL)
 
@@ -38,42 +76,59 @@ func TestIPv4(t *testing.T) {
 	}
 	t.Logf("ECN: %d", p.ECN)
 
+	if p.TotalLength != len(validIPv4Packet) {
+		t.Fatalf("*** Total Length should be %d, instead found %d", len(validIPv4Packet), p.TotalLength)
+	}
+	t.Logf("Total Length: %d", p.TotalLength)
+
 	t.Log("---")
 	t.Log("")
+
+	// Test for various failure cases.
+	// At least one for each possible error thrown.
 	t.Log("Failing Cases")
 
 	// Test for short packets.
-	data = []byte{0}
-	p, err = NewIPv4Packet(data)
+	short := []byte{0, 0, 0, 0, 0}
+	p, err = NewIPv4Packet(short)
 	if err == nil {
 		t.Fatal("*** Expected Packet Too Short error")
 	}
-	t.Log(err)
+	t.Log("Expecting packet too short error")
+	t.Logf("Error: %s", err.Error())
 
 	// Test for wrong version.
-	data = []byte{0x56, 0xB9, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0}
-	p, err = NewIPv4Packet(data)
+	p, err = NewIPv4Packet(validIPv6Packet)
 	if err == nil {
 		t.Logf("p.Version is set to: %d", p.Version)
 		t.Fatal("*** Expected non-IPv4 error")
 	}
-	t.Log(err)
+	t.Log("Expecting non-IPv4 error")
+	t.Logf("Error: %s", err.Error())
 
-	// Test for invalid IHL.
-	data = []byte{0x44, 0xB9, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0}
-	p, err = NewIPv4Packet(data)
+	// Test for invalid IHL that is too small.
+	p, err = NewIPv4Packet(shortIHL)
 	if err == nil {
-		t.Fatal("*** Expected invalid IHL value error")
+		t.Fatal("*** Expected short IHL value error")
 	}
-	t.Log(err)
+	t.Log("Expecting short IHL error")
+	t.Logf("Error: %s", err.Error())
+
+	// Test for invalid IHL that is too large.
+	p, err = NewIPv4Packet(largeIHL)
+	if err == nil {
+		t.Fatal("*** Expected large IHL value error")
+	}
+	t.Log("Expecting large IHL error")
+	t.Logf("Error: %s", err.Error())
+
+	// Test for invalid Total Length
+	p, err = NewIPv4Packet(wrongTL)
+	if err == nil {
+		t.Fatal("*** Expected invalid Total Length error")
+	}
+	t.Log("Expecting invalid Total Length error")
+	t.Logf("Error: %s", err.Error())
 
 }
 
