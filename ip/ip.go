@@ -89,5 +89,8 @@ func NewIPv4Packet(data []byte) (*IPv4Packet, error) {
 	}
 	p.TotalLength = totalLength
 
+	// Two bytes for a 16bit int
+	p.Identification = (int(data[4]) << 8) + int(data[5])
+
 	return p, nil
 }
